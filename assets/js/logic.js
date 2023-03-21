@@ -1,48 +1,239 @@
-// File for js logic
+// Logic file
+// Declaring of global variables
 const NUM_QUESTIONS = questions.length
-const TRANSITION_DELAY = 500
-const TIMER_PERIOD = 1000
-const PENALTY = 10
-let quizDuration = 60
-let questionsIndex = 0
-let scoreCount = 0
-//declaration of global variable
+const TRANSITION_DELAY = 500 // msec
+const TIMER_PERIOD = 1000 // msec
+const PENALTY = 10 // sec
+var quizDuration = 60 // sec
+var questionsScreen = document.querySelector("#questions");
+var feedbackEl = document.querySelector("#feedback");
+var startQuizBtn = document.querySelector("#start");
+var endQuizScreen = document.querySelector("#end-screen");
+var initialsInputEl = document.querySelector("#initials");
+var submitBtn = document.querySelector("#submit");
+var questionsIndex = 0
+var scoreCount = 0
+// Declaring variables for the wav audio files
+var correctAudio = new Audio("assets/sfx/correct.wav")
+var incorrectAudio = new Audio("assets/sfx/incorrect.wav")
 
-let questionsScreen = document.querySelector("#questions");
-let feedbackEl = document.querySelector("#feedback");
-let startQuizBtn = document.querySelector("#start");
-let endQuizScreen = document.querySelector("#end-screen");
-let initialInputEl = document.querySelector("#initials");
-let submitBtn = document.querySelector("#submit");
-//linking functions via HTML ids
-
-function startQuiz() {
+// Call all the functions required to start the quiz
+function startQuiz(){
     hideStartScreen();
     startTimer();
     showQuiz();
 }
-
 startQuizBtn.addEventListener("click", startQuiz);
-//Call functions to start the quiz
+
 
 function hideStartScreen(){
-    let startScreenDiv = document.querySelector("#start-screen");
+    var startScreenDiv = document.querySelector("#start-screen");
     startScreenDiv.classList.add("hide");
 }
-//Hide initial start screen
 
+// Timer count down
 function startTimer(){
-    let timerEl = document.querySelector("#time");
-    let timer = setInterval(function(){
-        if (quizDuration >=0){
+    var timerEl = document.querySelector("#time");
+    var timer = setInterval(function(){
+        if (quizDuration >= 0){
             timerEl.textContent = quizDuration
             quizDuration -= (TIMER_PERIOD / 1000);
-        }
-        else {
+        } else {
             clearInterval(timer);
             timerEl.textContent = ""
             stopQuiz();
         }
     }, TIMER_PERIOD)
 }
-//Timer Countdown
+
+ /* After hiding the start screen:
+    1. unhide the questions element
+    2. display question and choices
+    */
+function showQuiz(){
+   
+    showQuestionsScreen();
+    showQuestionAndChoices(questionsIndex);
+}
+
+// This fn shows/unhides the questions element
+function showQuestionsScreen(){
+    questionsScreen.classList.remove("hide");
+}
+
+// Calls functions that hide the questions and show the end of quiz page
+function stopQuiz(){
+    hideQuestionsScreen()
+    showEndQuizScreen()
+    // The condition stops the time when the quiz is ended.
+    if (quizDuration > 0) {
+        quizDuration =-1        
+    }
+}
+// Hides the Questions screen
+function hideQuestionsScreen(){
+    questionsScreen.classList.add("hide");
+}
+
+function showEndQuizScreen(){
+    var scoreEl = document.querySelector("#final-score");
+    endQuizScreen.classList.remove("hide");
+    scoreEl.textContent = scoreCount;
+}
+
+// This function displays the individual questions and answers.
+function showQuestionAndChoices(questionIndex){
+    var question = getNextQuestion(questionIndex);
+    var choices = question.answerChoices;
+    var answer = question.correctAnswer;
+
+    showQuestion(question)
+    showChoices(choices, answer)
+}
+
+function showQuestion(question) {
+    var questionTitle = document.querySelector("#question-title");
+    questionTitle.textContent = question.title 
+}
+
+// Displays the next question
+function getNextQuestion(index){
+    return questions[index]
+}
+
+function showChoices(choices, answer){
+    var container = document.querySelector(".choices");
+    clearContainer(container)
+    populateChoicesContainer(container, choices, answer)
+}
+
+function clearContainer(container) {
+    while(container.firstChild) {
+        container.removeChild(container.firstChild)
+    }
+}
+
+// Generating the list of the choices
+function populateChoicesContainer(choicesContainer, choices, answer) {
+    
+    for (let i = 0; i < choices.length; i++){
+        var choice = choices[i]
+        var choiceBtn = createChoiceButtonElement(choice, i, answer)
+        choicesContainer.appendChild(choiceBtn);
+    }
+}
+
+// Making the choices buttons with events
+function createChoiceButtonElement(choice, index, answer){
+    var btn = document.createElement("button");
+    btn.setAttribute("value", choice);
+    btn.textContent = String(index + 1) + '. ' + choice
+    btn.addEventListener("click", function(event){
+        selectChoice(event, answer)
+    })
+
+    return btn
+}
+
+function selectChoice(event, answer){
+    var selectedChoice = event.target.value
+    var isAnswerCorrect = checkAnswer(selectedChoice, answer)
+    updateScore(isAnswerCorrect);
+    showFeedback(isAnswerCorrect);
+    playFeedbackAudio(isAnswerCorrect);
+    if (!isAnswerCorrect){
+        penalize()
+    }
+    showNext();
+}
+// Reducing the seconds by 10 sec
+function penalize(){
+    quizDuration -= PENALTY
+}
+// Showing the next question
+function showNext(){
+    questionsIndex++;
+
+    setTimeout(function(){
+        if (questionsIndex < NUM_QUESTIONS){
+            showQuestionAndChoices(questionsIndex)
+        } else{
+            stopQuiz();
+        }
+        hideFeedback();
+    }, TRANSITION_DELAY)
+}
+
+function checkAnswer(selectedChoice, correctChoice){
+    if (selectedChoice === correctChoice){
+        return true
+    } else {
+        return false
+    }
+}
+
+// feedback: output depends on the answer selected
+// the output can either be "Correct!" or "Wrong!"
+function showFeedback(isAnswerCorrect){
+    feedbackEl.classList.remove("hide");
+    if (isAnswerCorrect){
+        feedbackEl.textContent = "Correct!"
+        
+    }
+    else {
+        feedbackEl.textContent = "Wrong!"
+        
+    }
+}
+
+// Playing correct or incorrect Audio file
+function playFeedbackAudio(isAnswerCorrect){
+    if (isAnswerCorrect){
+        correctAudio.play()
+    }
+    else {
+        incorrectAudio.play()
+    }
+}
+
+function hideFeedback(){
+    feedbackEl.classList.add("hide");
+}
+
+// Adding the scores per question
+function updateScore(isAnswerCorrect){
+    if (isAnswerCorrect){
+        scoreCount += 1;
+    }
+}
+
+function getScoresArrayFromLocalStorage(){
+    var scoresArr = localStorage.getItem("scoresArr")
+    if (scoresArr === null){
+        localStorage.setItem("scoresArr", JSON.stringify([]))
+    }
+
+    return JSON.parse(localStorage.getItem("scoresArr"))
+}
+
+function storeScoreToLocalStorage(score) {
+    var scoresArr = getScoresArrayFromLocalStorage()
+    scoresArr.push(score)
+    localStorage.setItem("scoresArr", JSON.stringify(scoresArr)) 
+}
+
+function storeScore(){
+    var score =  {
+        initials: initialsInputEl.value,
+        score:scoreCount
+    }
+    storeScoreToLocalStorage(score)
+}
+
+submitBtn.addEventListener("click", submitScore)
+
+function submitScore(){
+    storeScore()
+    location.href="./highscores.html"
+   
+}
